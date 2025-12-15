@@ -1,6 +1,6 @@
 # THGC
 ## [THGC: Type-Aware Heterogeneous Graph Network for Circuit Link Prediction](https://github.com/limeilin-lu/THGC/edit/main/README.md])
-**Project Structure:**
+### Project Structure:
 1. **heterogeneous_graph_processor.py**:Generate a 4-node heterogeneous graph.
 2. **Link_Prediction.py**:Perform link prediction tasks.
 ***
