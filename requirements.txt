@@ -1,0 +1,8 @@
+torch==2.8.0
+torch-cluster==1.6.3+pt28
+torch-geometric==2.6.1
+torch-scatter==2.1.2+pt28cpu
+torch-sparse==0.6.18+pt28cp
+torch-spline-conv==1.2.2+pt28cpu
+numpy==2.0.2
+PyYAML==6.0.2
