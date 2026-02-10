@@ -205,8 +205,6 @@ Val: AUC=0.9156 Acc=0.8623 | Test: AUC=0.9087 Acc=0.8534 | ███████
 
 ## 🏗️ Model Architecture
 
-### DRNL_HDE Model Components
-
 1. **Subgraph Extraction**
    - K-hop neighborhood sampling around target edges
    - DRNL node labeling for structural encoding
