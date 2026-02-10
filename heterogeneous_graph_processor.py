@@ -12,9 +12,6 @@ from collections import defaultdict
 from torch_geometric.utils import from_networkx
 
 # 配置
-#json_folder = "./SpiceNetlist/JSON"
-#json_folder = "./Masala-CHAI/JSON"
-#json_folder = "./AnalogGenie/JSON_unique_ID"
 
 json_folder = "./KiCad_github/json_files"
 #json_folder = "./LTspice_demos/json_files"
@@ -315,14 +312,7 @@ def process_all_circuits():
     print(f"  Source components:  {total_node_stats['S']}")
     print(f"  Network nodes:      {total_node_stats['N']}")
     print(f"  Total nodes:        {sum(total_node_stats.values())}")
-    """
-    # masala-chai保存数据
-    os.makedirs("./data", exist_ok=True)
-    with open("./data/Masala-CHAI_4node_heterogeneous.pkl", 'wb') as f:
-        pickle.dump(graph_list, f)
-    with open("./data/Masala-CHAI_4node_heterogeneous_label_mapping.pkl", 'wb') as f:
-        pickle.dump(label_mapping, f)
-    """
+
     """
     # ltspice_examples保存数据
     os.makedirs("./data", exist_ok=True)
@@ -348,14 +338,6 @@ def process_all_circuits():
     with open("./data/KiCad_github_4node_heterogeneous_label_mapping.pkl", 'wb') as f:
         pickle.dump(label_mapping, f)
 
-    """
-    # spicenetlist保存数据
-    os.makedirs("./data", exist_ok=True)
-    with open("./data/SpiceNetlist_4node_heterogeneous.pkl", 'wb') as f:
-        pickle.dump(graph_list, f)
-    with open("./data/SpiceNetlist_4node_heterogeneous_label_mapping.pkl", 'wb') as f:
-        pickle.dump(label_mapping, f)
-    """
     print(f"\nSaved 4-node heterogeneous graph data:")
     print(f"  - Training graphs: {len(graph_list['train_x'])}")
     print(f"  - Test graphs: {len(graph_list['test_x'])}")
@@ -367,13 +349,6 @@ def process_all_circuits():
 def convert_to_pyg_format():
     """
     改进的PyG格式转换
-    """
-    """
-    # MASALA-CAHI加载数据
-    with open("./data/Masala-CHAI_4node_heterogeneous.pkl", 'rb') as f:
-        dataset = pickle.load(f)
-    with open("./data/Masala-CHAI_4node_heterogeneous_label_mapping.pkl", 'rb') as f:
-        mapping = pickle.load(f)
     """
     """
     # ltspice_examples加载数据
@@ -397,13 +372,6 @@ def convert_to_pyg_format():
     with open("./data/KiCad_github_4node_heterogeneous_label_mapping.pkl", 'rb') as f:
         mapping = pickle.load(f)
 
-    """
-    # spicenetlist加载数据
-    with open("./data/SpiceNetlist_4node_heterogeneous.pkl", 'rb') as f:
-        dataset = pickle.load(f)
-    with open("./data/SpiceNetlist_4node_heterogeneous_label_mapping.pkl", 'rb') as f:
-        mapping = pickle.load(f)
-    """
     train_x = dataset['train_x']
 
     X = []
@@ -454,9 +422,6 @@ def convert_to_pyg_format():
     data.x = torch.from_numpy(np.array(X)).float()
     data.node_types = torch.tensor(node_types, dtype=torch.long)
 
-    # MASALA-CHAI保存
-    #torch.save(data, './data/Masala-CHAI_4node_heterogeneous.pt')
-
     # ltspice_examples保存
     #torch.save(data, './data/LTspice_examples_4node_heterogeneous.pt')
 
@@ -466,8 +431,6 @@ def convert_to_pyg_format():
     # kicad_github保存
     torch.save(data, './data/KiCad_github_4node_heterogeneous.pt')
 
-    # spicenetlist保存
-    #torch.save(data, './data/SpiceNetlist_4node_heterogeneous.pt')
     print("Saved 4-node heterogeneous PyG dataset!")
 
     # 统计信息
@@ -517,12 +480,6 @@ def validate_dataset():
         try:
             """
             data = torch.load(
-                './data/Masala-CHAI_4node_heterogeneous.pt',
-                weights_only=True
-            )
-            """
-            """
-            data = torch.load(
                 './data/LTspice_examples_4node_heterogeneous.pt',
                 weights_only=True
             )
@@ -540,12 +497,6 @@ def validate_dataset():
                 weights_only=True
             )
 
-            """
-            data = torch.load(
-                './data/SpiceNetlist_4node_heterogeneous.pt',
-                weights_only=True
-            )
-            """
             print("✓ Loaded with weights_only=True (secure mode)")
         except Exception as e:
             print(f"Warning: weights_only=True failed: {e}")
@@ -553,12 +504,6 @@ def validate_dataset():
             # 如果安全模式失败，回退到传统模式
             """
             data = torch.load(
-                './data/Masala-CHAI_4node_heterogeneous.pt',
-                weights_only=False
-            )
-            """
-            """
-            data = torch.load(
                 './data/LTspice_examples_4node_heterogeneous.pt',
                 weights_only=False
             )
@@ -576,12 +521,6 @@ def validate_dataset():
                 weights_only=False
             )
 
-            """
-            data = torch.load(
-                './data/SpiceNetlist_4node_heterogeneous.pt',
-                weights_only=False
-            )
-            """
             print("✓ Loaded with weights_only=False")
 
         print(f"✓ Dataset loaded successfully")
@@ -647,12 +586,6 @@ def safe_load_dataset():
         with torch.serialization.safe_globals(safe_globals):
             """
             data = torch.load(
-                './data/Masala-CHAI_4node_heterogeneous.pt',
-                weights_only=True
-            )
-            """
-            """
-            data = torch.load(
                 './data/LTspice_examples_4node_heterogeneous.pt',
                 weights_only=True
             )
@@ -670,24 +603,12 @@ def safe_load_dataset():
                 weights_only=True
             )
 
-            """
-            data = torch.load(
-                './data/SpiceNetlist_4node_heterogeneous.pt',
-                weights_only=True
-            )
-            """
 
         return data
 
     except Exception as e:
         print(f"Safe loading failed, trying fallback: {e}")
         # 回退方案
-        """
-        return torch.load(
-            './data/Masala-CHAI_4node_heterogeneous.pt',
-            weights_only=False
-        )
-        """
         """
         return torch.load(
             './data/LTspice_examples_4node_heterogeneous.pt',
@@ -707,13 +628,6 @@ def safe_load_dataset():
             './data/KiCad_github_4node_heterogeneous.pt',
             weights_only=False
         )
-
-        """
-        return torch.load(
-            './data/SpiceNetlist_4node_heterogeneous.pt',
-            weights_only=False
-        )
-        """
 
 
 
@@ -741,5 +655,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error in main process: {e}")
         import traceback
+
 
         traceback.print_exc()
