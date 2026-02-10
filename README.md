@@ -355,30 +355,3 @@ Per-Fold Results:
    Fold 2 ⭐: Val AUC=0.9312, Test AUC=0.9145, Test Acc=0.8698
    ...
 ```
-
----
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-1. **CUDA Out of Memory**
-   - Reduce `BATCH_SIZE` (default: 6)
-   - Reduce `HIDDEN_CHANNELS` (default: 80)
-   - Use CPU: `device = torch.device('cpu')`
-
-2. **Dataset Not Found**
-   - Verify file path in `DATASET_PT` variable
-   - Ensure graph processor has been run
-   - Check `./data/` directory exists
-
-3. **Training Stuck at 0.5 Accuracy**
-   - Script auto-restarts fold (max 3 attempts)
-   - Check data balance and quality
-   - Try different random seed
-
-4. **PyTorch Geometric Version Issues**
-   - Ensure compatible versions of torch-cluster, torch-scatter, torch-sparse
-   - Match CUDA version with PyTorch installation
-
----
