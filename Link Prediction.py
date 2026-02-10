@@ -1,8 +1,4 @@
-# DRNL_HDE_4Node_Enhanced.py
-# 基于DRNL_HDE_2Loss_update.py修改为支持4个节点类型的异构图
-# 4个节点类型：被动元件、主动元件、电源元件、网络节点
-#跑kicad+ltspice+ltspice数据集的时候，把device_type改成=34;把DATASET=改成对应的数据集
-#跑spicenetlist+analoggenie+masalachai数据集的时候，把device_type改成=18;把DATASET=改成对应的数据集
+
 import math
 from itertools import chain
 import numpy as np
@@ -30,23 +26,18 @@ from collections import deque
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# ==================== 修改的参数配置 ====================
-# Dataset - 【修改1】更改为4节点异构图数据集
-#DATASET = "SpiceNetlist"
-#DATASET = "Masala-CHAI"
+
 DATASET = "KiCad_github"
 #DATASET = "LTspice_demos"
 #DATASET = "LTspice_examples"
 DATASET_ROOT_DIRECTORY = "./data/"
-DATASET_PT = DATASET_ROOT_DIRECTORY + DATASET + "_4node_heterogeneous.pt"  # 【修改】数据集文件名
-DATASET_PROCESSED = DATASET + "_4node_heterogeneous_processed.pt"  # 【修改】处理后文件名
+DATASET_PT = DATASET_ROOT_DIRECTORY + DATASET + "_4node_heterogeneous.pt"  
+DATASET_PROCESSED = DATASET + "_4node_heterogeneous_processed.pt"  
 
-# HDE Configuration - 【修改2】更新为4节点类型
-USE_HDE = True
-NODE_TYPES = 4  # 【修改】从2改为4：被动元件 + 主动元件 + 电源元件 + 网络节点
+USE_TADE = True
+NODE_TYPES = 4 
 MAX_DIST = 3
-# 【修改3】更新节点类型映射
-HDE_TYPE_MAPPING = {
+TADE_TYPE_MAPPING = {
     'P': 0,  # 被动元件 (Passive)
     'A': 1,  # 主动元件 (Active)
     'S': 2,  # 电源元件 (Source)
@@ -54,7 +45,6 @@ HDE_TYPE_MAPPING = {
 }
 
 
-# ==================== 关键改进：更优的超参数（保持不变）====================
 N_SPLITS = 5
 MIN_NUM_EPOCHS = 8
 RANDOM_STATE = 42
@@ -69,7 +59,6 @@ NUM_LAYERS = 4  # 增加网络深度
 DROPOUT_RATE = 0.5  # 添加Dropout
 MAX_EPOCHS_WHERE_TEST_ACC_STUCK = 8
 
-# 【修改4】模型保存目录
 MODEL_SAVE_DIRECTORY = "./model-save-4node"
 PLOT_SAVE_DIRECTORY = "./plot-4node"
 os.makedirs(MODEL_SAVE_DIRECTORY, exist_ok=True)
@@ -130,12 +119,11 @@ def drnl_node_labeling(edge_index, src, dst, num_nodes=None):
     return z.to(torch.long)
 
 
-# 【修改5】HDE特征提取器 - 更新为4节点类型
-class HDE_Enhanced_Subgraph_Extractor:
-    def __init__(self, node_types=4, max_dist=3):  # 【修改】从2改为4
+class TADE_Enhanced_Subgraph_Extractor:
+    def __init__(self, node_types=4, max_dist=3):  
         self.node_types = node_types
         self.max_dist = max_dist
-        self.type2idx = HDE_TYPE_MAPPING
+        self.type2idx = TADE_TYPE_MAPPING
         self.global_node_types = None
 
     def prepare_node_types(self, data):
@@ -144,7 +132,7 @@ class HDE_Enhanced_Subgraph_Extractor:
         else:
             raise ValueError("Data object must have 'node_types' attribute for heterogeneous graph")
 
-    # 【修改6】更新节点类型推断函数
+    # 更新节点类型推断函数
     def infer_node_type(self, global_node_idx):
         if self.global_node_types is None:
             raise RuntimeError("Call prepare_node_types() first")
@@ -165,8 +153,8 @@ class HDE_Enhanced_Subgraph_Extractor:
             G.add_edge(f"N{src}", f"N{dst}")
         return G
 
-    # 【修改7】更新HDE计算以支持4种节点类型
-    def compute_node_hde(self, G, node_name, target_name):
+    # 更新TADE计算以支持4种节点类型
+    def compute_node_tade(self, G, node_name, target_name):
         try:
             try:
                 shortest_path = nx.shortest_path(G, node_name, target_name)
@@ -178,7 +166,6 @@ class HDE_Enhanced_Subgraph_Extractor:
             cnt = [self.max_dist] * self.node_types
             try:
                 paths = []
-                # 【修改8】初始化4种节点类型计数
                 queue = deque([(node_name, [node_name], {'P': 0, 'A': 0, 'S': 0, 'N': 0})])
 
                 while queue:
@@ -201,13 +188,13 @@ class HDE_Enhanced_Subgraph_Extractor:
                 if not paths:
                     return np.zeros(self.node_types * (self.max_dist + 1), dtype=np.float32)
             except:
-                # 【修改9】回退路径计算更新为4种节点类型
+                # 回退路径计算更新为4种节点类型
                 paths = [(shortest_path,
                           {node_type: shortest_path.count(node_type) - (
                               1 if node_type == G.nodes[node_name].get('type', 'P') else 0)
                            for node_type in ['P', 'A', 'S', 'N']})]
 
-            # 【修改10】处理4种节点类型的路径
+            # 处理4种节点类型的路径
             for path, type_counts in paths:
                 res = [0] * self.node_types
                 res[0] = type_counts.get('P', 0)  # 被动元件
@@ -227,39 +214,39 @@ class HDE_Enhanced_Subgraph_Extractor:
 
             return np.concatenate(one_hot_list)
         except Exception as e:
-            print(f"HDE computation error: {e}")
+            print(f"TADE computation error: {e}")
             return np.zeros(self.node_types * (self.max_dist + 1), dtype=np.float32)
 
-    def compute_subgraph_hde(self, sub_nodes, sub_edge_index, src, dst, data):
+    def compute_subgraph_tade(self, sub_nodes, sub_edge_index, src, dst, data):
         try:
             G = self.edge_index_to_networkx(sub_edge_index, sub_nodes, data)
             node_mapping = {i: f"N{i}" for i in range(len(sub_nodes))}
-            hde_matrix = []
+            tade_matrix = []
             for i, node_idx in enumerate(sub_nodes):
                 node_name = node_mapping[i]
                 src_name = node_mapping[src]
                 dst_name = node_mapping[dst]
                 if node_name in G.nodes and src_name in G.nodes and dst_name in G.nodes:
-                    dist_to_src = self.compute_node_hde(G, node_name, src_name)
-                    dist_to_dst = self.compute_node_hde(G, node_name, dst_name)
-                    hde_feature = np.concatenate([dist_to_src, dist_to_dst])
+                    dist_to_src = self.compute_node_tade(G, node_name, src_name)
+                    dist_to_dst = self.compute_node_tade(G, node_name, dst_name)
+                    tade_feature = np.concatenate([dist_to_src, dist_to_dst])
                 else:
-                    hde_feature = np.zeros(self.node_types * (self.max_dist + 1) * 2, dtype=np.float32)
-                hde_matrix.append(hde_feature)
-            return torch.FloatTensor(np.array(hde_matrix))
+                    tade_feature = np.zeros(self.node_types * (self.max_dist + 1) * 2, dtype=np.float32)
+                tade_matrix.append(tade_feature)
+            return torch.FloatTensor(np.array(tade_matrix))
         except Exception as e:
-            print(f"HDE computation failed: {e}")
+            print(f"TADE computation failed: {e}")
             zero_feature = np.zeros((len(sub_nodes), self.node_types * (self.max_dist + 1) * 2), dtype=np.float32)
             return torch.FloatTensor(zero_feature)
 
 
-def extract_enclosing_subgraphs(edge_index, edge_label_index, y, num_hops, data, global_max_z=None, use_hde=False):
+def extract_enclosing_subgraphs(edge_index, edge_label_index, y, num_hops, data, global_max_z=None, use_tade=False):
     data_list = []
     local_max_z = 0
-    hde_extractor = None
-    if use_hde:
-        hde_extractor = HDE_Enhanced_Subgraph_Extractor(node_types=NODE_TYPES, max_dist=MAX_DIST)
-        hde_extractor.prepare_node_types(data)
+    tade_extractor = None
+    if use_tade:
+        tade_extractor = TADE_Enhanced_Subgraph_Extractor(node_types=NODE_TYPES, max_dist=MAX_DIST)
+        tade_extractor.prepare_node_types(data)
 
     for src, dst in edge_label_index.t().tolist():
         sub_nodes, sub_edge_index, mapping, _ = k_hop_subgraph(
@@ -272,14 +259,14 @@ def extract_enclosing_subgraphs(edge_index, edge_label_index, y, num_hops, data,
         local_max_z = max(local_max_z, int(z.max()))
         node_features = data.x[sub_nodes]
 
-        if use_hde and hde_extractor:
-            hde_features = hde_extractor.compute_subgraph_hde(sub_nodes, sub_edge_index, src, dst, data)
-            if hde_features is not None and hde_features.size(0) == node_features.size(0):
-                node_features = torch.cat([node_features, hde_features], dim=1)
+        if use_tade and tade_extractor:
+            tade_features = tade_extractor.compute_subgraph_tade(sub_nodes, sub_edge_index, src, dst, data)
+            if tade_features is not None and tade_features.size(0) == node_features.size(0):
+                node_features = torch.cat([node_features, tade_features], dim=1)
             else:
-                zero_hde = torch.zeros((node_features.size(0), NODE_TYPES * (MAX_DIST + 1) * 2),
+                zero_tade = torch.zeros((node_features.size(0), NODE_TYPES * (MAX_DIST + 1) * 2),
                                        dtype=node_features.dtype)
-                node_features = torch.cat([node_features, zero_hde], dim=1)
+                node_features = torch.cat([node_features, zero_tade], dim=1)
 
         data_item = Data(x=node_features, z=z, edge_index=sub_edge_index, y=y)
         data_list.append(data_item)
@@ -293,7 +280,6 @@ def extract_enclosing_subgraphs(edge_index, edge_label_index, y, num_hops, data,
     return data_list
 
 
-# ==================== 【修改11】强化的损失函数 - 更新为4节点类型 ====================
 class EnhancedHeterogeneousLoss(torch.nn.Module):
     """
     专为4节点异构图设计的强化损失函数
@@ -301,15 +287,15 @@ class EnhancedHeterogeneousLoss(torch.nn.Module):
     """
 
     def __init__(self, alpha=0.4, beta=0.35, gamma=0.2, delta=0.05,
-                 node_types=4, device_types=34, use_hde=True):  # 【修改】node_types从2改为4
+                 node_types=4, device_types=34, use_tade=True):  
         super().__init__()
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
         self.delta = delta
-        self.node_types = node_types  # 【修改】现在是4个节点类型
+        self.node_types = node_types 
         self.device_types = device_types
-        self.use_hde = use_hde
+        self.use_tade = use_tade
 
         # 基础损失
         self.bce_loss = BCEWithLogitsLoss(reduction='none')
@@ -323,9 +309,9 @@ class EnhancedHeterogeneousLoss(torch.nn.Module):
         # 1. 自适应BCE损失
         base_loss = self._compute_adaptive_bce_loss(predictions, targets)
 
-        # 2. 4节点设备类型感知损失 - 核心改进
+        # 2. 4节点类型感知损失 
         device_loss = torch.tensor(0.0, device=device)
-        if batch_data is not None and self.use_hde:
+        if batch_data is not None and self.use_tade:
             try:
                 device_loss = self._compute_4node_device_type_loss(predictions, targets, batch_data)
             except Exception as e:
@@ -334,7 +320,7 @@ class EnhancedHeterogeneousLoss(torch.nn.Module):
 
         # 3. 4节点拓扑结构损失
         topology_loss = torch.tensor(0.0, device=device)
-        if batch_data is not None and self.use_hde:
+        if batch_data is not None and self.use_tade:
             try:
                 topology_loss = self._compute_4node_topology_loss(predictions, targets, batch_data)
             except Exception as e:
@@ -365,7 +351,7 @@ class EnhancedHeterogeneousLoss(torch.nn.Module):
         adaptive_weights = 1.0 + 2.0 * uncertainty
         return (bce * adaptive_weights).mean()
 
-    # 【修改12】新增4节点设备类型感知损失
+
     def _compute_4node_device_type_loss(self, predictions, targets, batch_data):
         """
         if not hasattr(batch_data, 'x') or batch_data.x.size(1) < 34:
@@ -379,22 +365,21 @@ class EnhancedHeterogeneousLoss(torch.nn.Module):
 
         Fdim = batch_data.x.size(1)
 
-        # HDE 维度，与你后面 topology_loss 的假设一致：4*(3+1)*2 = 32
-        hde_dim = self.node_types * (MAX_DIST + 1) * 2 if self.use_hde else 0
+        tade_dim = self.node_types * (MAX_DIST + 1) * 2 if self.use_tade else 0
 
-        # 反推出 DRNL one-hot 维度
-        drnl_dim = Fdim - self.device_types - hde_dim
+
+        drnl_dim = Fdim - self.device_types - tade_dim
         if drnl_dim < 0:
             return torch.tensor(0.0, device=predictions.device)
 
-        # ✅ 真正的 device one-hot 段
+
         start = drnl_dim
         end = drnl_dim + self.device_types
         if end > Fdim:
             return torch.tensor(0.0, device=predictions.device)
 
         device_features = batch_data.x[:, start:end]
-        """4节点设备类型感知损失"""
+        """4节点类型感知损失"""
 
         batch_indices = batch_data.batch
         unique_batches = torch.unique(batch_indices)
@@ -421,7 +406,7 @@ class EnhancedHeterogeneousLoss(torch.nn.Module):
                 device_importance = torch.sum(self.device_weights * device_dist)
                 weighted_error = torch.abs(pred_prob - target_val) * device_importance
 
-                # 【修改13】4节点类型多样性奖励
+  
                 # 对于4种节点类型，增加类型多样性奖励
                 entropy = -torch.sum(device_dist * torch.log(device_dist + 1e-8))
                 # 4节点类型的多样性惩罚更加复杂
@@ -435,7 +420,7 @@ class EnhancedHeterogeneousLoss(torch.nn.Module):
 
         return device_loss / max(valid_count, 1)
 
-    # 【修改14】4节点拓扑一致性损失
+    # 4节点拓扑一致性损失
     def _compute_4node_topology_loss(self, predictions, targets, batch_data):
         """4节点拓扑一致性损失"""
         if not hasattr(batch_data, 'x'):
@@ -454,37 +439,37 @@ class EnhancedHeterogeneousLoss(torch.nn.Module):
 
                 subgraph_features = batch_data.x[mask]
 
-                if self.use_hde and subgraph_features.size(1) > 19:
+                if self.use_tade and subgraph_features.size(1) > 19:
                     feature_dim = subgraph_features.size(1)
 
                     if feature_dim >= 32:
-                        # 【修改15】假设4节点HDE特征在后32维 (4 * (3+1) * 2 = 32)
-                        hde_start = feature_dim - 32
-                        drnl_part = subgraph_features[:, :hde_start]
-                        hde_part = subgraph_features[:, hde_start:]
+              
+                        tade_start = feature_dim - 32
+                        drnl_part = subgraph_features[:, :tade_start]
+                        tade_part = subgraph_features[:, tade_start:]
 
-                        if drnl_part.size(1) > 0 and hde_part.size(1) > 0:
+                        if drnl_part.size(1) > 0 and tade_part.size(1) > 0:
                             drnl_summary = drnl_part.mean(dim=0)
-                            hde_summary = hde_part.mean(dim=0)
+                            tade_summary = tade_part.mean(dim=0)
 
-                            if drnl_summary.size(0) != hde_summary.size(0):
-                                min_dim = min(drnl_summary.size(0), hde_summary.size(0))
+                            if drnl_summary.size(0) != tade_summary.size(0):
+                                min_dim = min(drnl_summary.size(0), tade_summary.size(0))
                                 drnl_summary = drnl_summary[:min_dim]
-                                hde_summary = hde_summary[:min_dim]
+                                tade_summary = tade_summary[:min_dim]
 
                             if batch_idx.item() >= len(predictions):
                                 continue
 
                             pred_conf = torch.abs(torch.sigmoid(predictions[batch_idx.item()]) - 0.5) * 2
 
-                            if drnl_summary.numel() > 0 and hde_summary.numel() > 0:
+                            if drnl_summary.numel() > 0 and tade_summary.numel() > 0:
                                 feature_sim = F.cosine_similarity(
                                     drnl_summary.unsqueeze(0),
-                                    hde_summary.unsqueeze(0)
+                                    tade_summary.unsqueeze(0)
                                 ).abs()
 
                                 consistency = torch.abs(feature_sim - pred_conf)
-                                # 【修改16】4节点的一致性损失权重调整
+                      
                                 topology_loss += consistency * 1.2  # 增加4节点一致性重要性
                                 valid_count += 1
 
@@ -506,24 +491,24 @@ class EnhancedHeterogeneousLoss(torch.nn.Module):
         pos_probs = probs[pos_mask]
         neg_probs = probs[neg_mask]
 
-        # 简单的边界损失：正样本应该>0.6，负样本应该<0.4
+
         pos_loss = F.relu(0.6 - pos_probs).mean()
         neg_loss = F.relu(neg_probs - 0.4).mean()
 
         return pos_loss + neg_loss
 
 
-# ==================== 强化的模型架构（保持EnhancedHDE_DGCNN不变）====================
-class EnhancedHDE_DGCNN(torch.nn.Module):
-    """完全修复版本 - 解决所有维度不匹配问题"""
+
+class EnhancedTADE_DGCNN(torch.nn.Module):
+
 
     def __init__(self, hidden_channels, num_layers, num_features=None, k=0.6,
-                 node_types=4, max_dist=3, use_hde=True, dropout=0.25):  # 【修改】node_types从2改为4
+                 node_types=4, max_dist=3, use_tade=True, dropout=0.25):  
         super().__init__()
         if num_features is None:
             raise ValueError("num_features must be specified")
 
-        self.use_hde = use_hde
+        self.use_tade = use_tade
         if k < 1:
             self.k = 15
         else:
@@ -532,16 +517,15 @@ class EnhancedHDE_DGCNN(torch.nn.Module):
         print(f"防弹模型初始化: k={self.k}, features={num_features}, hidden={hidden_channels}")
         print(f"4节点类型: 被动元件、主动元件、电源元件、网络节点")
 
-        # 图卷积层 - 简单稳定的设计
+
         self.convs = ModuleList()
         self.convs.append(GCNConv(num_features, hidden_channels))
         for i in range(num_layers - 1):
             self.convs.append(GCNConv(hidden_channels, hidden_channels))
-        self.convs.append(GCNConv(hidden_channels, 1))  # 保持原设计
+        self.convs.append(GCNConv(hidden_channels, 1))  
 
         self.dropout = torch.nn.Dropout(dropout)
 
-        # 关键改进：延迟创建分类器，根据实际输出动态调整
         self.classifier = None
         self.hidden_channels = hidden_channels
         self.num_layers = num_layers
@@ -618,22 +602,22 @@ class EnhancedHDE_DGCNN(torch.nn.Module):
         return self.classifier(x)
 
 
-# ==================== 强化的训练函数（更新为4节点）====================
+
 def enhanced_train(model, loader, optimizer, scheduler, criterion):
     model.train()
     total_loss = 0
     y_pred, y_true = [], []
 
-    # 【修改17】使用4节点强化损失函数
-    if USE_HDE:
+    # 使用4节点强化损失函数
+    if USE_TADE:
         enhanced_criterion = EnhancedHeterogeneousLoss(
             alpha=0.4,  # 基础BCE
-            beta=0.35,  # 4节点设备类型感知（重点）
+            beta=0.35,  # 4节点类型感知
             gamma=0.2,  # 4节点拓扑一致性
             delta=0.05,  # 难样本挖掘
-            node_types=NODE_TYPES,  # 【修改】4节点类型
+            node_types=NODE_TYPES,  # 4节点类型
             device_types=34,
-            use_hde=USE_HDE
+            use_tade=USE_TADE
         ).to(device)
         print("Using 4-node enhanced heterogeneous dual encoding loss")
     else:
@@ -648,7 +632,7 @@ def enhanced_train(model, loader, optimizer, scheduler, criterion):
             out = model(data.x, data.edge_index, data.batch)
 
             # 损失计算
-            if USE_HDE:
+            if USE_TADE:
                 loss = enhanced_criterion(out.view(-1), data.y, batch_data=data)
             else:
                 loss = criterion(out.view(-1), data.y.to(torch.float))
@@ -747,9 +731,9 @@ def get_cosine_schedule_with_warmup(optimizer, num_warmup_steps, num_training_st
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
 
-# ==================== 【修改18】完整的4节点K折实验函数 ====================
+
 def run_enhanced_kfold_experiment(n_splits=5, num_epochs=60):
-    """运行4节点增强版K折交叉验证实验"""
+    """运行4节点K折交叉验证实验"""
     print("=" * 60)
     print("启动4节点增强版异构图链路预测实验")
     print(f"4节点类型：被动元件、主动元件、电源元件、网络节点")
@@ -791,21 +775,21 @@ def run_enhanced_kfold_experiment(n_splits=5, num_epochs=60):
             train_data, val_data, _ = transform(Data(edge_index=train_edges, x=data.x))
 
             # 子图提取
-            print("正在提取封闭子图（4节点HDE增强）...")
+            print("正在提取封闭子图（4节点TADE增强）...")
             train_pos_data = extract_enclosing_subgraphs(
-                train_data.edge_index, train_data.pos_edge_label_index, 1, 2, data, global_max_z, use_hde=USE_HDE)
+                train_data.edge_index, train_data.pos_edge_label_index, 1, 2, data, global_max_z, use_tade=USE_TADE)
             train_neg_data = extract_enclosing_subgraphs(
-                train_data.edge_index, train_data.neg_edge_label_index, 0, 2, data, global_max_z, use_hde=USE_HDE)
+                train_data.edge_index, train_data.neg_edge_label_index, 0, 2, data, global_max_z, use_tade=USE_TADE)
             val_pos_data = extract_enclosing_subgraphs(
-                val_data.edge_index, val_data.pos_edge_label_index, 1, 2, data, global_max_z, use_hde=USE_HDE)
+                val_data.edge_index, val_data.pos_edge_label_index, 1, 2, data, global_max_z, use_tade=USE_TADE)
             val_neg_data = extract_enclosing_subgraphs(
-                val_data.edge_index, val_data.neg_edge_label_index, 0, 2, data, global_max_z, use_hde=USE_HDE)
+                val_data.edge_index, val_data.neg_edge_label_index, 0, 2, data, global_max_z, use_tade=USE_TADE)
             test_pos_data = extract_enclosing_subgraphs(train_edges, test_edges, 1, 2, data, global_max_z,
-                                                        use_hde=USE_HDE)
+                                                        use_tade=USE_TADE)
             neg_edge_index = negative_sampling(edge_index=train_edges, num_nodes=data.x.size(0),
                                                num_neg_samples=test_edges.size(1), method="sparse")
             test_neg_data = extract_enclosing_subgraphs(train_edges, neg_edge_index, 0, 2, data, global_max_z,
-                                                        use_hde=USE_HDE)
+                                                        use_tade=USE_TADE)
 
             # 数据加载器
             train_dataset = train_pos_data + train_neg_data
@@ -825,15 +809,15 @@ def run_enhanced_kfold_experiment(n_splits=5, num_epochs=60):
 
             print(f"4节点模型配置: features={num_features}, k={k}, hidden={HIDDEN_CHANNELS}")
 
-            # 【修改19】创建4节点增强模型
-            model = EnhancedHDE_DGCNN(
+
+            model = EnhancedTADE_DGCNN(
                 hidden_channels=HIDDEN_CHANNELS,
                 num_layers=NUM_LAYERS,
                 num_features=num_features,
                 k=k,
-                node_types=NODE_TYPES,  # 【修改】4节点类型
+                node_types=NODE_TYPES, 
                 max_dist=MAX_DIST,
-                use_hde=USE_HDE,
+                use_tade=USE_TADE,
                 dropout=DROPOUT_RATE
             ).to(device)
 
@@ -913,8 +897,8 @@ def run_enhanced_kfold_experiment(n_splits=5, num_epochs=60):
                         'global_max_z': global_max_z,
                         'k': k,
                         'num_features': num_features,
-                        'use_hde': USE_HDE,
-                        'node_types': NODE_TYPES,  # 【修改】保存4节点类型信息
+                        'use_tade': USE_TADE,
+                        'node_types': NODE_TYPES,  # 保存4节点类型信息
                         'best_val_auc': best_val_auc,
                         'best_test_auc': best_test_auc,
                         'best_test_acc': best_test_acc
@@ -931,8 +915,8 @@ def run_enhanced_kfold_experiment(n_splits=5, num_epochs=60):
                         print(f"第 {epoch} 轮触发早停 (第 {fold + 1} 折)")
                         break
 
-                # 【修改20】打印进度 - 4节点状态
-                status = "4-Node-Enhanced" if USE_HDE else "Original"
+                # 打印进度 - 4节点状态
+                status = "4-Node-Enhanced" if USE_TADE else "Original"
                 progress_bar = "█" * int(val_auc * 10) + "░" * (10 - int(val_auc * 10))
                 print(f"[{status}] 第{fold + 1}折 Epoch {epoch:02d} | "
                       f"Train: L={train_loss:.4f} AUC={train_auc:.4f} Acc={train_acc:.4f} | "
@@ -940,15 +924,11 @@ def run_enhanced_kfold_experiment(n_splits=5, num_epochs=60):
                       f"Test: AUC={test_auc:.4f} Acc={test_acc:.4f} | "
                       f"{progress_bar}")
 
-                # 达到目标检查
-            #   if val_auc >= 0.92 and test_auc >= 0.90 and test_acc >= 0.85:
-            #       print(f"达到目标指标！提前完成第 {fold + 1} 折")
-            #       break
 
             if restart_fold:
                 continue
 
-            # 可视化结果（与原版相同）
+            # 可视化结果
             plt.figure(figsize=(15, 5))
 
             plt.subplot(1, 3, 1)
@@ -1046,35 +1026,8 @@ def run_enhanced_kfold_experiment(n_splits=5, num_epochs=60):
     return val_auc_scores, test_auc_scores, test_acc_scores
 
 
-# ==================== 【修改21】主函数 ====================
+
 if __name__ == "__main__":
-    print("启动4节点增强版DRNL-HDE异构图链路预测实验")
-    print(f"实验配置:")
-    print(f"   - 使用4节点HDE增强: {USE_HDE}")
-    print(f"   - 节点类型: {NODE_TYPES} (被动元件 + 主动元件 + 电源元件 + 网络节点)")
-    print(f"   - spicenetlist/analoggenie/masalachai设备类型: 18种")
-    print(f"   - kicad_github/ltspice_demos设备类型: 34种")
-    print(f"   - 学习率: {LEARNING_RATE}")
-    print(f"   - 隐藏维度: {HIDDEN_CHANNELS}")
-    print(f"   - 网络层数: {NUM_LAYERS}")
-    print(f"   - Dropout: {DROPOUT_RATE}")
-    print(f"   - 最大轮数: {MAX_NUM_EPOCHS}")
-    print(f"目标: Val AUC ≥ 0.92, Test AUC ≥ 0.90, Test Acc ≥ 0.85")
-    print("=" * 80)
-    print("4节点异构图修改总结:")
-    print("1. 更新NODE_TYPES从2改为4")
-    print("2. 更新HDE_TYPE_MAPPING包含P, A, S, N节点类型")
-    print("3. 修改HDE_Enhanced_Subgraph_Extractor支持4节点类型")
-    print("4. 增强EnhancedHeterogeneousLoss的4节点平衡")
-    print("5. 更新模型架构处理4节点HDE特征")
-    print("6. 修改数据集文件路径使用4node_heterogeneous数据")
-    print("7. 添加4节点类型平衡损失计算")
-    print("8. 增强4节点双重编码一致性损失")
-    print("9. 更新所有日志和状态消息支持4节点")
-    print("=" * 80)
-    print("-" * 60)
 
     # 运行实验
     val_scores, test_auc_scores, test_acc_scores = run_enhanced_kfold_experiment(N_SPLITS, MAX_NUM_EPOCHS)
-
-    print("\n实验完成！4节点结果已保存到 ./model-save-4node/ 和 ./plot-4node/ 目录")
