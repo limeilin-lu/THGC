@@ -1,25 +1,4 @@
-# THGC - Topology-aware Heterogeneous Graph for Circuits
-### 4-Node Heterogeneous Graph Neural Network for Circuit Link Prediction
-
-A Graph Neural Network (GNN) framework for electronic circuit analysis using 4-node heterogeneous graph representations with DRNL-HDE (Distance-based Ranking and Node Labeling with Heterogeneous Distance Encoding).
-
----
-
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Project Structure](#project-structure)
-- [Features](#features)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Datasets](#datasets)
-- [Usage](#usage)
-- [Model Architecture](#model-architecture)
-- [Configuration](#configuration)
-- [Output](#output)
-- [Citation](#citation)
-
----
+# THGC
 
 ## 🔍 Overview
 
@@ -33,7 +12,7 @@ This project implements a heterogeneous graph neural network for circuit topolog
   - **Source Components (S)**: Voltage sources, Current sources, Controlled sources
   - **Network Nodes (N)**: Circuit connection points (nets)
 
-- **DRNL-HDE Encoding**: Combines Distance-based Ranking Node Labeling with Heterogeneous Distance Encoding for capturing both structural and semantic information
+- **TADE Encoding**: Combines Distance-based Ranking Node Labeling with Type-aware Distance Encoding for capturing both structural and semantic information
 
 - **Multi-Loss Training**: Employs multiple loss functions for balanced learning across node types
 
@@ -43,8 +22,8 @@ This project implements a heterogeneous graph neural network for circuit topolog
 
 ```
 THGC/
-├── heterogeneous_graph_processor_4_CCP.py   # Graph generation from circuit netlists
-├── DRNL_HDE_4Loss_update.py                 # Link prediction model training
+├── heterogeneous_graph_processor.py   # Graph generation from circuit netlists
+├── Link Prediction.py                 # Link prediction model training
 ├── requirements.txt                          # Python dependencies
 ├── data/                                     # Dataset directory
 │   └── [dataset]_4node_heterogeneous.pt     # Processed graph data
@@ -55,14 +34,14 @@ THGC/
 
 ### Main Components
 
-1. **heterogeneous_graph_processor_4_CCP.py**: 
-   - Parses JSON circuit netlists
+1. **heterogeneous_graph_processor.py**: 
+   - Parses circuit netlists
    - Creates 4-node heterogeneous graphs
    - Generates PyTorch Geometric datasets
    - Supports 34 component types
 
-2. **DRNL_HDE_4Loss_update.py**: 
-   - Implements DRNL-HDE link prediction model
+2. **Link Prediction.py**: 
+   - Implements link prediction model
    - K-fold cross-validation training
    - Multi-loss optimization
    - Performance evaluation and visualization
@@ -73,7 +52,7 @@ THGC/
 
 - **Heterogeneous Graph Modeling**: Explicit modeling of different component types
 - **DRNL Node Labeling**: Encodes structural distance information
-- **HDE Feature Engineering**: Type-aware distance encoding with 4 node categories
+- **TADE Feature Engineering**: Type-aware distance encoding with 4 node categories
 - **Advanced GNN Architecture**: Multi-layer GCN with dropout and batch normalization
 - **Comprehensive Training**:
   - 5-fold cross-validation
@@ -118,7 +97,7 @@ tqdm
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/THGC.git
+git clone https://anonymous.4open.science/r/THGC.git
 cd THGC
 ```
 
@@ -149,38 +128,27 @@ The project supports multiple circuit netlist datasets from:
 **Repository**: https://github.com/symbench/spice-datasets
 
 Available datasets:
-- **SpiceNetlist** (18 device types)
-- **AnalogGenie** (18 device types)
-- **Masala-CHAI** (18 device types)
-- **KiCad_github** (34 device types)
-- **LTspice_demos** (34 device types)
-- **LTspice_examples** (34 device types)
-
-### Data Format
-
-Raw data should be in JSON format representing circuit netlists. Each component includes:
-- `component_type`: Type of electronic component
-- `port_connection`: Dictionary of port-to-net connections
-- `instance_id`: Unique identifier (auto-generated)
+- **KiCad_github** (34 component types)
+- **LTspice_demos** (34 component types)
+- **LTspice_examples** (34 component types)
 
 ### Data Preparation
 
 1. **Download dataset** from the spice-datasets repository
-2. **Place JSON files** in appropriate folder structure:
+2. **Place files** in appropriate folder structure:
    ```
-   ./[DatasetName]/JSON/  # For SpiceNetlist, Masala-CHAI, AnalogGenie
-   ./[DatasetName]/json_files/  # For KiCad, LTspice
+   ./[DatasetName]/  # For KiCad, LTspice
    ```
 
 3. **Run graph processor**:
    ```bash
-   python heterogeneous_graph_processor_4_CCP.py
+   python heterogeneous_graph_processor.py
    ```
    
    **Configuration**: Edit the script to select your dataset:
    ```python
-   # In heterogeneous_graph_processor_4_CCP.py, line 15-21
-   json_folder = "./KiCad_github/json_files"  # Change to your dataset
+   # In heterogeneous_graph_processor.py, line 15-21
+   folder = "./KiCad_github/files"  # Change to your dataset
    ```
 
 4. **Output**: Creates `./data/[Dataset]_4node_heterogeneous.pt`
@@ -192,11 +160,11 @@ Raw data should be in JSON format representing circuit netlists. Each component 
 ### Step 1: Generate Heterogeneous Graph Dataset
 
 ```bash
-python heterogeneous_graph_processor_4_CCP.py
+python heterogeneous_graph_processor.py
 ```
 
 This will:
-- Read circuit JSON files
+- Read circuit files
 - Classify components into 4 node types
 - Create heterogeneous graph structure
 - Save as PyTorch Geometric dataset
@@ -204,19 +172,17 @@ This will:
 ### Step 2: Train Link Prediction Model
 
 ```bash
-python DRNL_HDE_4Loss_update.py
+python Link Prediction.py
 ```
 
 **Important**: Before running, configure the dataset in the script:
 
 ```python
-# In DRNL_HDE_4Loss_update.py, lines 35-42
+# In Link Prediction.py, lines 35-42
 DATASET = "KiCad_github"  # Choose your dataset
-# Options: "SpiceNetlist", "Masala-CHAI", "AnalogGenie", 
-#          "KiCad_github", "LTspice_demos", "LTspice_examples"
+# Options: "LTspice_demos", "LTspice_examples"
 
 # Also set the device type count based on dataset:
-# For SpiceNetlist/AnalogGenie/Masala-CHAI: 18 device types
 # For KiCad/LTspice: 34 device types
 ```
 
@@ -245,7 +211,7 @@ Val: AUC=0.9156 Acc=0.8623 | Test: AUC=0.9087 Acc=0.8534 | ███████
    - K-hop neighborhood sampling around target edges
    - DRNL node labeling for structural encoding
 
-2. **HDE Feature Extraction**
+2. **TADE Feature Extraction**
    - Computes type-aware distance distributions
    - Creates 4-type × (max_dist + 1) dimensional features
    - Captures heterogeneous graph semantics
@@ -275,7 +241,7 @@ Total_Loss = BCE_Loss + α × TypeBalance_Loss + β × EncodingConsistency_Loss
 
 - **BCE Loss**: Binary cross-entropy for link prediction
 - **Type Balance Loss**: Ensures balanced learning across node types
-- **Encoding Consistency Loss**: Aligns DRNL and HDE representations
+- **Encoding Consistency Loss**: Aligns DRNL and TADE representations
 
 ---
 
@@ -283,13 +249,13 @@ Total_Loss = BCE_Loss + α × TypeBalance_Loss + β × EncodingConsistency_Loss
 
 ### Key Hyperparameters
 
-Edit `DRNL_HDE_4Loss_update.py` to adjust:
+Edit `Link Prediction.py` to adjust:
 
 ```python
 # Dataset Configuration
 DATASET = "KiCad_github"           # Dataset name
 NODE_TYPES = 4                     # Number of node types (fixed)
-MAX_DIST = 3                       # Maximum distance for HDE
+MAX_DIST = 3                       # Maximum distance for TADE
 
 # Training Configuration
 N_SPLITS = 5                       # K-fold cross-validation
@@ -315,7 +281,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # GPU device ID
 ### Node Type Mapping
 
 ```python
-HDE_TYPE_MAPPING = {
+TADE_TYPE_MAPPING = {
     'P': 0,  # Passive Components
     'A': 1,  # Active Components
     'S': 2,  # Source Components
@@ -325,7 +291,7 @@ HDE_TYPE_MAPPING = {
 
 ### Component Categories (34 types)
 
-Defined in `heterogeneous_graph_processor_4_CCP.py`:
+Defined in `Link Prediction.py`:
 
 - **Passive (11)**: Cap, Capacitor, Ind, Inductor, Res, Resistor, CoupledInd, TransLine, UniformRC, LossyTransLine, CoupledMultiLine
 - **Active (14)**: NMOS, PMOS, MOSFET, NPN, PNP, BJT, Diode, Op_amp, IC, SubCircuit, JFET, MESFET, Behavioral, XSpice
@@ -344,7 +310,7 @@ Each fold saves a checkpoint containing:
 - Model state dictionary
 - Best validation/test metrics
 - Graph statistics (max_z, k-hop value)
-- Configuration (use_hde, node_types)
+- Configuration (use_tade, node_types)
 
 Filename format: `4node_enhanced_model_fold{N}.pth`
 
@@ -418,64 +384,3 @@ Per-Fold Results:
    - Match CUDA version with PyTorch installation
 
 ---
-
-## 📝 Citation
-
-If you use this code in your research, please cite:
-
-```bibtex
-@misc{thgc2024,
-  title={THGC: Topology-aware Heterogeneous Graph for Circuit Link Prediction},
-  author={Your Name},
-  year={2024},
-  howpublished={\url{https://github.com/yourusername/THGC}}
-}
-```
-
-### Dataset Citation
-
-```bibtex
-@misc{spice-datasets,
-  title={SPICE Datasets for Circuit Analysis},
-  author={Symbench Team},
-  year={2024},
-  howpublished={\url{https://github.com/symbench/spice-datasets}}
-}
-```
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 📧 Contact
-
-For questions or issues, please open an issue on GitHub or contact [your-email@example.com]
-
----
-
-## 🙏 Acknowledgments
-
-- PyTorch Geometric team for the excellent graph learning library
-- Symbench team for providing circuit datasets
-- DRNL paper authors for the innovative node labeling approach
-
----
-
-**Last Updated**: February 2026  
-**Version**: 1.0.0
